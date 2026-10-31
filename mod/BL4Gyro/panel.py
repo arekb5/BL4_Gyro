@@ -224,7 +224,7 @@ def _margin(top: float = 0, bottom: float = 0) -> object:
 
 
 def _new_text(tree, size: int, rgba) -> object:
-    t = unrealsdk.construct_object("TextBlock", tree)
+    t = tree.ConstructWidget(unrealsdk.find_class("TextBlock"))
     font = t.Font
     font.Size = size
     t.SetFont(font)
@@ -241,7 +241,7 @@ def _text(tree, box, size: int, rgba, gap: float = 0, below: float = 0) -> objec
 
 
 def _column(tree, line, width: float, size: int, centered: bool = False) -> object:
-    box = unrealsdk.construct_object("SizeBox", tree)
+    box = tree.ConstructWidget(unrealsdk.find_class("SizeBox"))
     _cosmetic(lambda: box.SetWidthOverride(width))
     text = _new_text(tree, size, WHITE)
     if centered:
@@ -253,7 +253,7 @@ def _column(tree, line, width: float, size: int, centered: bool = False) -> obje
 
 def _row(tree, box) -> tuple[object, object, object, object]:
     """One menu row in three fixed columns: focus marker, label, centred value."""
-    line = unrealsdk.construct_object("HorizontalBox", tree)
+    line = tree.ConstructWidget(unrealsdk.find_class("HorizontalBox"))
     _cosmetic(lambda: box.AddChildToVerticalBox(line).SetPadding(_margin(top=ROW_PAD, bottom=ROW_PAD)))
     mark = _column(tree, line, MARK_W, FONT_ROW)
     label = _column(tree, line, LABEL_W, FONT_ROW)
@@ -266,8 +266,8 @@ def _widget(pc, width: float | None = None) -> tuple[object, object, object]:
     lib = unrealsdk.find_class("WidgetBlueprintLibrary").ClassDefaultObject
     widget = lib.Create(pc, unrealsdk.find_class("UserWidget"), pc)
     tree = widget.WidgetTree
-    border = unrealsdk.construct_object("Border", tree)
-    box = unrealsdk.construct_object("VerticalBox", tree)
+    border = tree.ConstructWidget(unrealsdk.find_class("Border"))
+    box = tree.ConstructWidget(unrealsdk.find_class("VerticalBox"))
     if width is None:
         tree.RootWidget = border
     else:
