@@ -20,10 +20,10 @@ REPEAT_DELAY_S, REPEAT_EVERY_S = 0.4, 0.08
 
 
 def should_inject(*, gyro_enabled: bool, panel_open: bool, calibrating: bool, mode: str, button_held: bool,
-                  ads: bool, gate_open: bool) -> bool:
+                  ads: bool, gate_open: bool, touchpad_touched: bool = False) -> bool:
     """Precedence: gyro off > panel open > calibrating > game gate > mode. The gyro button enables gyro in Hold
     mode and suspends it in the other modes."""
-    if not gyro_enabled or panel_open or calibrating or not gate_open:
+    if not gyro_enabled or panel_open or calibrating or not gate_open or touchpad_touched:
         return False
     if mode == "Hold button":
         return button_held
