@@ -12,8 +12,6 @@ from typing import Any, Callable
 MODES = ("Always", "ADS only", "Hold button")
 BUTTON_NAMES = ("Auto", "Xbox", "PlayStation", "Nintendo")
 STICK_MODES = ("Traditional", "Flick Stick")
-# Names of the buttons the panel uses, by controller family: (bottom face, right face, left shoulder, right shoulder).
-# Positions are what the DLL reads (Xbox layout), so a Switch pad's bottom button is its B.
 PAD_LABELS = {"Xbox": ("A", "B", "LB", "RB"), "PlayStation": ("X", "O", "L1", "R1"), "Nintendo": ("B", "A", "L", "R")}
 COMBO_HOLD_S = 0.5
 REPEAT_DELAY_S, REPEAT_EVERY_S = 0.4, 0.08
@@ -56,7 +54,7 @@ class FlickStick:
 
     FLICK_RELEASE = 0.1
     FLICK_FORWARD_DEG = 25.0  # pushes aimed "up" measured in game: -22 to +20 degrees
-    RELEASE_SPEED = 1.5       # stick radius per second; turning along a square gate stays well below
+    RELEASE_SPEED = 10.0      # stick radius per second; allows fast flicks while still ignoring normal release-inward motion
     TURN_SMOOTH_DPS = 360.0  # GyroWiki's 0.1 rad per frame at 60 fps
     TURN_SMOOTH_S = 0.1      # time constant of the smoothed part
 
@@ -269,8 +267,8 @@ class Menu:
     section: str = "Main"
     index: int = 0
     trail: list[tuple[str, int]] = field(default_factory=list)
-    asking: Row | None = None  # action waiting for confirmation
-    entry: str | None = None  # numeric text being typed, None when not typing
+    asking: Row | None = None
+    entry: str | None = None
     message: str = ""
 
     def rows(self) -> list[Row]:
@@ -314,59 +312,44 @@ class Menu:
         if row.kind == "section":
             self.trail.append((self.section, self.index))
             self.section, self.index = row.target, 0
-            self.move(0)
         elif row.kind == "action" and row.set is not None:
             if row.confirm:
                 self.asking = row
             else:
                 row.set(None)
                 return "run"
-        elif row.kind in ("toggle", "choice"):
-            self.adjust(1)
         return None
 
     def back(self) -> bool:
-        """B / Esc. Returns True when the panel should close."""
+        if self.asking:
+            self.asking = None
+            return True
         if self.entry is not None:
             self.entry = None
-            return False
-        if self.asking is not None:
-            self.asking = None
-            return False
+            return True
         if self.trail:
             self.section, self.index = self.trail.pop()
+            return True
+        return False
+
+    def begin_entry(self) -> bool:
+        row = self.focused()
+        if row.kind != "slider" or self.asking:
             return False
+        self.entry = ""
         return True
 
-    def type_char(self, ch: str) -> None:
-        """Keyboard digits on a slider start typing a value; A / Enter applies it."""
-        if self.entry is None and self.focused().kind == "slider" and not self.asking:
-            self.entry = ""
-        if self.entry is not None and len(self.entry) < 8 and (ch.isdigit() or ch in ".,-"):
-            self.entry += ch
+    def type_char(self, char: str) -> None:
+        if self.entry is not None and (char.isdigit() or char in ".,-"):
+            self.entry += char
 
-    def erase(self) -> None:
-        if self.entry:
-            self.entry = self.entry[:-1]
-
-    def commit_entry(self) -> None:
-        row, text, self.entry = self.focused(), self.entry or "", None
-        value = parse_number(text)
-        if value is None:
-            self.message = f"'{text}' is not a number"
-        elif row.set is not None:
-            row.set(snap(value, row.lo, row.hi, row.fine))
-            if not row.lo <= value <= row.hi:
-                self.message = f"Limited to {row.fmt.format(row.lo)} - {row.fmt.format(row.hi)}"
-        return None
-
-    def value_text(self, row: Row) -> str:
-        if row.kind == "toggle":
-            return "On" if row.get() else "Off"
-        if row.kind == "slider":
-            if self.entry is not None and row is self.focused():
-                return f"[{self.entry}_]"
-            return row.fmt.format(row.get())
-        if row.kind in ("choice", "info"):
-            return str(row.get())
-        return ""
+    def commit_entry(self) -> str | None:
+        if self.entry is None:
+            return None
+        row = self.focused()
+        value = parse_number(self.entry)
+        self.entry = None
+        if value is None or row.set is None:
+            return None
+        row.set(snap(value, row.lo, row.hi, row.step))
+        return "run"
