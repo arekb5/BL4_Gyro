@@ -89,6 +89,10 @@ def _apply_sens(x: float | None = None, y: float | None = None, link: bool | Non
     _changed()
 
 
+pause_on_touchpad = BoolOption("Pause gyro on touchpad", True,
+                               description="Pauses gyro while a finger touches the controller touchpad (without clicking). "
+                                           "Touch detection currently works with Direct HID (SDL), not Steam Input.",
+                               on_change_anytime=lambda _o, _v: _changed())
 gyro_enabled = BoolOption("Gyro enabled", True,
                           description="Turns gyro aiming on or off. The panel stays available either way.",
                           on_change_anytime=lambda _o, _v: _changed())
@@ -160,7 +164,7 @@ flick_threshold = SliderOption("Flick threshold", 0.9, 0.5, 0.95, 0.05, False,
 ui = HiddenOption("ui", {"intro_seen": False})
 
 SLIDERS = (sens_x, sens_y, ads_multiplier, tighten, smoothing, flick_time, flick_threshold)
-BOOLS = (gyro_enabled, link_vertical, invert_x, invert_y, auto_calibrate, debug_trace)
+BOOLS = (gyro_enabled, pause_on_touchpad, link_vertical, invert_x, invert_y, auto_calibrate, debug_trace)
 SPINNERS = (mode, space, combo, gyro_button, button_labels, stick_mode)
 
 
@@ -220,6 +224,11 @@ def button_names() -> list[str] | None:
 def buttons() -> int:
     """Controller buttons as bits (panel.PAD_BITS); 0 while the game is not focused."""
     return int(_dll.bl4gyro_buttons()) if _dll is not None else 0
+
+
+def touchpad_touched() -> bool:
+    """True while a finger contacts an SDL Direct HID gamepad touchpad (not a click)."""
+    return bool(_dll.bl4gyro_touchpad_touched()) if _dll is not None else False
 
 
 def calibration_text() -> str:
@@ -296,6 +305,8 @@ def _load_dll() -> ctypes.CDLL:
     dll.bl4gyro_info.restype = ctypes.c_int
     dll.bl4gyro_buttons.argtypes = []
     dll.bl4gyro_buttons.restype = ctypes.c_uint
+    dll.bl4gyro_touchpad_touched.argtypes = []
+    dll.bl4gyro_touchpad_touched.restype = ctypes.c_int
     dll.bl4gyro_stick.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double)]
     dll.bl4gyro_stick.restype = ctypes.c_int
     dll.bl4gyro_button_names.argtypes = [ctypes.c_char_p, ctypes.c_int]
@@ -398,7 +409,8 @@ def _on_camera_update(_obj, _args, _ret, _func) -> None:
         inject = state.should_inject(gyro_enabled=gyro_enabled.value, panel_open=panel.is_open(),
                                      calibrating=calibrating(), mode=mode.value,
                                      button_held=panel.held(gyro_button.value),
-                                     ads=ads, gate_open=gate_open)
+                                     ads=ads, gate_open=gate_open,
+                                     touchpad_touched=pause_on_touchpad.value and touchpad_touched())
         flick = state.flick_on(stick_mode=stick_mode.value, gyro_enabled=gyro_enabled.value,
                                panel_open=panel.is_open(), gate_open=gate_open)
         flick_yaw = _flick_yaw(flick, dt)
