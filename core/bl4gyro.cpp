@@ -302,6 +302,7 @@ std::atomic<unsigned> g_buttons{0};
 // window is not focused (g_focused false). Raw: the game's own stick deadzone/sensitivity never applies to it.
 std::atomic<float> g_stick_x{0}, g_stick_y{0};
 std::atomic<bool> g_focused{false};
+std::atomic<bool> g_touchpad_touched{false};
 
 struct XInputPads {
     using GetState = DWORD(WINAPI*)(DWORD, XINPUT_STATE*);
@@ -370,6 +371,14 @@ unsigned sdl_buttons(SDL_Gamepad* pad, float stick[2])
     if (SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_LEFT_TRIGGER) > 16000) bits |= 1u << 14;
     if (SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) > 16000) bits |= 1u << 15;
     return bits;
+}
+
+bool sdl_touchpad_touched(SDL_Gamepad* pad)
+{
+    bool down = false;
+    float x = 0, y = 0, pressure = 0;
+    return SDL_GetNumGamepadTouchpads(pad) > 0 &&
+           SDL_GetGamepadTouchpadFinger(pad, 0, 0, &down, &x, &y, &pressure) && down;
 }
 
 // Printed names of the buttons the panel uses, "confirm|back|left shoulder|right shoulder" (bottom face, right face,
@@ -530,6 +539,7 @@ void sensor_loop()
             const bool focused = game_has_focus();
             float stick[2] = {};
             g_buttons = !focused ? 0 : hid.pad ? sdl_buttons(hid.pad, stick) : xinput.read(now, stick);
+            g_touchpad_touched = focused && hid.pad && sdl_touchpad_touched(hid.pad);
             g_stick_x = stick[0];
             g_stick_y = stick[1];
             g_focused = focused;
@@ -614,6 +624,7 @@ BL4GYRO_API void bl4gyro_stop()
     g_buttons = 0;
     g_stick_x = g_stick_y = 0;
     g_focused = false;
+    g_touchpad_touched = false;
     set_status("stopped");
     log("bl4gyro stopped");
     std::lock_guard lock(g_log_mutex);
@@ -674,6 +685,9 @@ BL4GYRO_API int bl4gyro_button_names(char* buf, int size)
 
 // Controller buttons as a bit mask (see g_buttons). Read by the mod once per camera update.
 BL4GYRO_API unsigned bl4gyro_buttons() { return g_buttons; }
+
+// True while a finger touches the first DualSense touchpad surface (HID/SDL path).
+BL4GYRO_API int bl4gyro_touchpad_touched() { return g_touchpad_touched ? 1 : 0; }
 
 // Right stick (see g_stick_x). Returns 1 while the game window is focused, 0 otherwise (stick reads 0 then).
 BL4GYRO_API int bl4gyro_stick(double* x, double* y)
