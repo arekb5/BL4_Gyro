@@ -662,6 +662,7 @@ def _build_menu() -> state.Menu:
         ],
         "Main": [
             _option_row(g.gyro_enabled, "toggle", "Gyro"),
+            _option_row(g.pause_on_touchpad, "toggle"),
             _option_row(g.mode, "choice"),
             state.Row("Sensitivity", "choice", lambda: "Grouped" if g.link_vertical.value else "Individual",
                       lambda v: setattr(g.link_vertical, "value", v == "Grouped"), choices=("Grouped", "Individual"),
