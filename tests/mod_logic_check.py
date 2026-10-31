@@ -22,7 +22,7 @@ def check(ok: bool, what: str) -> None:
 
 def inject(**over) -> bool:
     args = dict(gyro_enabled=True, panel_open=False, calibrating=False, mode="Always", button_held=False, ads=False,
-                gate_open=True)
+                gate_open=True, touchpad_touched=False)
     args.update(over)
     return state.should_inject(**args)
 
@@ -35,6 +35,7 @@ def precedence() -> None:
         for mode in state.MODES:
             check(not inject(**{blocker: True}, mode=mode, button_held=True, ads=True), f"{blocker} blocks in {mode}")
     check(not inject(button_held=True), "gyro button suspends in Always")
+    check(not inject(touchpad_touched=True), "touchpad contact pauses gyro without a click")
     check(not inject(mode="ADS only"), "ADS only, hip fire -> off")
     check(inject(mode="ADS only", ads=True), "ADS only, aiming -> on")
     check(not inject(mode="ADS only", ads=True, button_held=True), "gyro button suspends in ADS only")
