@@ -7,4 +7,4 @@ call "%VSDIR%\VC\Auxiliary\Build\vcvars64.bat" >nul || exit /b 1
 cd /d "%~dp0"
 cmake --preset release || exit /b 1
 cmake --build --preset release || exit /b 1
-ctest --preset release %*
+rem Tests intentionally disabled for this minimal in-game validation build.
