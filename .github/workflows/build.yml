@@ -30,9 +30,16 @@ jobs:
         shell: pwsh
         run: ./scripts/package.ps1 -OutDir dist
 
-      - name: Upload release ZIP
+      - name: Prepare installable artifact (without nested ZIP)
+        shell: pwsh
+        run: |
+          $zip = Get-ChildItem dist -Filter *.zip | Select-Object -First 1
+          if (-not $zip) { throw "Release ZIP was not created." }
+          Expand-Archive -LiteralPath $zip.FullName -DestinationPath dist\install -Force
+
+      - name: Upload installable files
         uses: actions/upload-artifact@v4
         with:
           name: bl4-gyro-windows
-          path: dist/*.zip
+          path: dist/install/**
           if-no-files-found: error
