@@ -296,6 +296,8 @@ def _load_dll() -> ctypes.CDLL:
     dll.bl4gyro_info.restype = ctypes.c_int
     dll.bl4gyro_buttons.argtypes = []
     dll.bl4gyro_buttons.restype = ctypes.c_uint
+    dll.bl4gyro_touchpad_touched.argtypes = []
+    dll.bl4gyro_touchpad_touched.restype = ctypes.c_int
     dll.bl4gyro_stick.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double)]
     dll.bl4gyro_stick.restype = ctypes.c_int
     dll.bl4gyro_button_names.argtypes = [ctypes.c_char_p, ctypes.c_int]
@@ -398,7 +400,8 @@ def _on_camera_update(_obj, _args, _ret, _func) -> None:
         inject = state.should_inject(gyro_enabled=gyro_enabled.value, panel_open=panel.is_open(),
                                      calibrating=calibrating(), mode=mode.value,
                                      button_held=panel.held(gyro_button.value),
-                                     ads=ads, gate_open=gate_open)
+                                     ads=ads, gate_open=gate_open,
+                                     touchpad_touched=bool(_dll.bl4gyro_touchpad_touched()))
         flick = state.flick_on(stick_mode=stick_mode.value, gyro_enabled=gyro_enabled.value,
                                panel_open=panel.is_open(), gate_open=gate_open)
         flick_yaw = _flick_yaw(flick, dt)
