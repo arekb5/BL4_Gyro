@@ -20,10 +20,10 @@ REPEAT_DELAY_S, REPEAT_EVERY_S = 0.4, 0.08
 
 
 def should_inject(*, gyro_enabled: bool, panel_open: bool, calibrating: bool, mode: str, button_held: bool,
-                  ads: bool, gate_open: bool) -> bool:
+                  ads: bool, gate_open: bool, touchpad_touched: bool = False) -> bool:
     """Precedence: gyro off > panel open > calibrating > game gate > mode. The gyro button enables gyro in Hold
     mode and suspends it in the other modes."""
-    if not gyro_enabled or panel_open or calibrating or not gate_open:
+    if not gyro_enabled or panel_open or calibrating or not gate_open or touchpad_touched:
         return False
     if mode == "Hold button":
         return button_held
@@ -56,7 +56,7 @@ class FlickStick:
 
     FLICK_RELEASE = 0.1
     FLICK_FORWARD_DEG = 25.0  # pushes aimed "up" measured in game: -22 to +20 degrees
-    RELEASE_SPEED = 1.5       # stick radius per second; turning along a square gate stays well below
+    RELEASE_SPEED = 10.0       # stick radius per second; turning along a square gate stays well below
     TURN_SMOOTH_DPS = 360.0  # GyroWiki's 0.1 rad per frame at 60 fps
     TURN_SMOOTH_S = 0.1      # time constant of the smoothed part
 
