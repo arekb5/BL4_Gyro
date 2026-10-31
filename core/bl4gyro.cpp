@@ -278,6 +278,21 @@ struct HidPad {
         return true;
     }
 
+    bool touchpad_touched() const
+    {
+        if (!pad) return false;
+        const int touchpads = SDL_GetNumGamepadTouchpads(pad);
+        for (int t = 0; t < touchpads; ++t) {
+            const int fingers = SDL_GetNumGamepadTouchpadFingers(pad, t);
+            for (int f = 0; f < fingers; ++f) {
+                bool down = false;
+                float x = 0, y = 0, pressure = 0;
+                if (SDL_GetGamepadTouchpadFinger(pad, t, f, &down, &x, &y, &pressure) && down) return true;
+            }
+        }
+        return false;
+    }
+
     void close()
     {
         if (pad) SDL_CloseGamepad(pad);
@@ -302,6 +317,7 @@ std::atomic<unsigned> g_buttons{0};
 // window is not focused (g_focused false). Raw: the game's own stick deadzone/sensitivity never applies to it.
 std::atomic<float> g_stick_x{0}, g_stick_y{0};
 std::atomic<bool> g_focused{false};
+std::atomic<bool> g_touchpad_touched{false};
 
 struct XInputPads {
     using GetState = DWORD(WINAPI*)(DWORD, XINPUT_STATE*);
@@ -533,6 +549,8 @@ void sensor_loop()
             g_stick_x = stick[0];
             g_stick_y = stick[1];
             g_focused = focused;
+            // SDL exposes touch contact on the Direct HID path. XInput/Steam virtual pads do not carry it.
+            g_touchpad_touched = focused && hid.pad && hid.touchpad_touched();
         }
         update_info([&](Info& i) {
             i.source = active ? Source::Steam : hid.pad ? Source::Hid : input.is_open() || hid.ready ? Source::None
@@ -614,6 +632,7 @@ BL4GYRO_API void bl4gyro_stop()
     g_buttons = 0;
     g_stick_x = g_stick_y = 0;
     g_focused = false;
+    g_touchpad_touched = false;
     set_status("stopped");
     log("bl4gyro stopped");
     std::lock_guard lock(g_log_mutex);
@@ -674,6 +693,9 @@ BL4GYRO_API int bl4gyro_button_names(char* buf, int size)
 
 // Controller buttons as a bit mask (see g_buttons). Read by the mod once per camera update.
 BL4GYRO_API unsigned bl4gyro_buttons() { return g_buttons; }
+
+// Touchpad contact, independent of the physical click. Currently available on SDL Direct HID only.
+BL4GYRO_API int bl4gyro_touchpad_touched() { return g_touchpad_touched ? 1 : 0; }
 
 // Right stick (see g_stick_x). Returns 1 while the game window is focused, 0 otherwise (stick reads 0 then).
 BL4GYRO_API int bl4gyro_stick(double* x, double* y)
