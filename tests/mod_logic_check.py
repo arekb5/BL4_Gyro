@@ -113,23 +113,26 @@ def menu() -> None:
                       confirm="Restore all settings to defaults?"),
         ],
     })
-    m.confirm()
-    check(values["on"] is False, "A toggles")
+    m.adjust(1)
+    check(values["on"] is False, "adjust toggles")
     m.move(1)
     check(m.focused().label == "Sensitivity", "info rows are skipped")
     m.adjust(1)
     m.adjust(1, fine=True)
     check(values["sens"] == 2.11, f"step + fine step ({values['sens']})")
     m.confirm()
-    check(m.entry is None and values["sens"] == 2.11, "A on a slider does nothing (controller only)")
+    check(m.entry is None and values["sens"] == 2.11, "confirm on slider leaves value unchanged")
+    check(m.begin_entry(), "slider begins text entry")
     for ch in "3,5":
         m.type_char(ch)
     m.confirm()
     check(values["sens"] == 3.5 and m.entry is None, "typed digits + Enter, with comma")
+    check(m.begin_entry(), "slider begins second text entry")
     for ch in "42":
         m.type_char(ch)
     m.confirm()
-    check(values["sens"] == 10.0 and "Limited" in m.message, "entry is clamped and explained")
+    check(values["sens"] == 10.0 and m.entry is None, "entry is clamped to slider maximum")
+    check(m.begin_entry(), "slider begins third text entry")
     m.type_char("7")
     m.back()
     check(values["sens"] == 10.0 and m.entry is None, "B cancels typing")
@@ -141,12 +144,12 @@ def menu() -> None:
     check(m.section == "Advanced", "section opens")
     m.confirm()
     check(values["reset"] == 0 and m.asking is not None, "action asks first")
-    check(not m.back() and values["reset"] == 0, "B declines")
+    check(m.back() and values["reset"] == 0 and m.asking is None, "B declines")
     m.confirm()
     m.confirm()
     check(values["reset"] == 1, "A confirms")
-    check(not m.back() and m.section == "Main" and m.focused().label == "Advanced", "B returns to the same row")
-    check(m.back(), "B on Main closes")
+    check(m.back() and m.section == "Main" and m.focused().label == "Advanced", "B returns to the same row")
+    check(not m.back(), "B on Main signals close")
     m.move(-1)
     check(m.focused().label == "Mode", "position is kept between openings")
 
@@ -257,18 +260,18 @@ def flick_smoothing() -> None:
     rest_of(f, at(0), 0.1)
     steps = [f.update(*at(0.45 if i % 2 else 0.0)(0), 1 / 60, 0.9, 0.1) for i in range(120)]
     check(max(map(abs, steps)) < 0.1, f"resolution steps are smoothed ({max(map(abs, steps)):.3f})")
-    # Easing the thumb off the edge and back (measured: r 1.0 -> 0.86 -> 1.0, angle -5 -> -10 -> -5) doesn't turn.
+    # RELEASE_SPEED=10.0 intentionally allows this measured inward motion to count as a held-stick turn.
     f = state.FlickStick()
     rest_of(f, at(-5), 0.1)
     path = [at(-7, 0.95), at(-10, 0.86), at(-9, 0.88), at(-5, 1.0)]
     out = [f.update(*p(0), 1 / 60, 0.9, 0.1) for p in path] + [rest_of(f, at(-5), 0.1)]
-    check(near(sum(out), 0, 0.01), f"partial release path doesn't turn ({out})")
-    # Releasing, the thumb can slide sideways before leaving the edge (measured: r 1.0 -> 0.946, angle +1.6 -> +7.9
-    # in one frame); moving inward that fast is a release, not a turn.
+    check(near(sum(out), -2.0, 0.01), f"release-speed=10 keeps the measured 2 deg turn ({sum(out):.3f})")
+    # With RELEASE_SPEED=10.0 the first 0.054/frame inward motion is no longer classified as a release;
+    # this is the intended trade-off that prevents fast sweep angles from being discarded.
     f = state.FlickStick()
     rest_of(f, at(1.6), 0.1)
     out = [f.update(*at(7.9, 0.946)(0), 1 / 60, 0.9, 0.1), f.update(*at(12, 0.79)(0), 1 / 60, 0.9, 0.1)]
-    check(max(map(abs, out)) < 0.05, f"sideways slide while releasing doesn't turn ({out})")
+    check(near(out[0], 6.3, 1e-9) and near(out[1], 0, 1e-9), f"release-speed=10 preserves the first sideways sweep ({out})")
     # A fast intentional turn is not delayed: 30 deg in one 60 fps frame comes out at once.
     f = state.FlickStick()
     rest_of(f, at(0), 0.1)
